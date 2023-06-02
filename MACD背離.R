@@ -114,6 +114,6 @@ library(quantmod)
 prices <- BTC_1h_price$Close
 hourly_time <- BTC_1h_price$Date
 
-plot(BTC_1h_price$Close, BTC_1h_price$Date)
-
+plot(BTC_1h_price$Close, BTC_1h_price$Date) "bug 畫不出圖" 
+"試試看用subset畫圖" 
 
