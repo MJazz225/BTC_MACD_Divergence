@@ -8,6 +8,8 @@
 ############################################################################
 rm(list=ls())
 
+if(!require(TTR))install.packages("TTR")
+
 ########################################### 測BTC1小時資料 #######################################################
 
 setwd("D:\\Users\\marshaw.tan\\Desktop\\TradingData")
@@ -49,18 +51,38 @@ BTC_1h_price <- cbind(BTC_1h_price, macd_data$histogram)
 BTC_1h_price <- na.omit(BTC_1h_price)
 colnames(BTC_1h_price) <- c("Date", "Open", "High", "Low", "Close", "Histogram")
 
-# 定义ATR函数
-calculate_atr <- function(data, n) {
-  # 计算每个周期的真实范围（True Range）
-  true_range <- pmax(High(data) - Low(data), abs(High(data) - lag(Cl(data))), abs(Low(data) - lag(Cl(data))))
-  
-  # 计算平均真实范围（Average True Range）
-  atr <- SMA(true_range, n)
-  
-  # 返回ATR指标
-  return(atr)
-}
+########################################### ATR #######################################################
+subset1 <- BTC_1h_price
 
+# 定义ATR函数
+if(!require(TTR))install.packages("TTR")
+
+subset1$High <- as.numeric(subset1$High)
+subset1$Low <- as.numeric(subset1$Low)
+subset1$Close <- as.numeric(subset1$Close)
+atr <- ATR(subset1[,c("High","Low","Close")], n = 13)
+
+BTC_1h_price <- cbind(BTC_1h_price, atr[,2])
+colnames(BTC_1h_price) <- c("Date", "Open", "High", "Low", "Close", "Histogram", "ATR")
+
+write.csv(BTC_1h_price, file = "BTC_1h_price.csv")
+
+
+###########################################################################
+#
+#
+#    MACD背離 part 2 start from here
+#
+#
+#
+############################################################################
+
+BTC_1h_price <- read.csv("BTC_1h_price.csv", sep = ",", stringsAsFactors = F, encoding = "UTF-8", header = F)
+columns <- BTC_1h_price[1,]
+colnames(BTC_1h_price) <- columns
+BTC_1h_price <- BTC_1h_price[c(2:nrow(BTC_1h_price)),c(2:8)]
+
+rm(columns)
 ########################################### 定義背離 #######################################################
 #畫背離線 
 # 定义函数：判断顶部背离
@@ -108,12 +130,119 @@ divergence <- as.data.frame(check_divergence(BTC_1h_price$Close, BTC_1h_price$Hi
 # 输出结果
 print(divergence)
 colnames(divergence) <- "Divergence"
-BTC_1h_price <- cbind(BTC_1h_price, divergence)
+BTC_1h_price1 <- cbind(BTC_1h_price, divergence)
 
 library(quantmod)
-prices <- BTC_1h_price$Close
-hourly_time <- BTC_1h_price$Date
+prices <- BTC_1h_price1$Close
+hourly_time <- BTC_1h_price1$Date
 
-plot(BTC_1h_price$Close, BTC_1h_price$Date) "bug 畫不出圖" 
-"試試看用subset畫圖" 
+subset2 <- BTC_1h_price1[c(1:500),c(1,5,6)]
+write.csv(subset2, file = "BTC_1hour_price.csv")
+
+########################################### 回測交易 #######################################################
+
+#做多策略
+BTC_1h_price2 <- na.omit(BTC_1h_price1)
+
+BTC_1h_price2$Open <- as.numeric(BTC_1h_price2$Open)
+BTC_1h_price2$High <- as.numeric(BTC_1h_price2$High)
+BTC_1h_price2$Low <- as.numeric(BTC_1h_price2$Low)
+BTC_1h_price2$Close <- as.numeric(BTC_1h_price2$Close)
+BTC_1h_price2$Histogram <- as.numeric(BTC_1h_price2$Histogram)
+BTC_1h_price2$ATR <- as.numeric(BTC_1h_price2$ATR)
+
+buy_profit <- 0
+buy_position <- 0
+tem_loss <- 0
+tem_profit <- 0
+buy_trade_count <- 0
+buy_win_trade <- 0
+
+for (i in 1:nrow(BTC_1h_price2)) {
+  
+  cat(i, "/", nrow(BTC_1h_price2), "\n") # 有49460筆資料, 先存檔
+  
+  if(BTC_1h_price2[i,"Divergence"] == 1){
+    buy_position <- buy_position + 1
+    buyin <- BTC_1h_price2[i,"Close"]
+    stop_loss <- buyin - BTC_1h_price2[i,"ATR"]
+    stop_profit <- buyin + BTC_1h_price2[i,"ATR"]
+    if(BTC_1h_price2[i,"Low"] < stop_loss){ #最低價小過止損, 表示止損在價格區間內
+      if(buy_position > 0){
+        tem_loss <- stop_loss - buyin
+      }
+    }  
+    if(BTC_1h_price2[i,"High"] > stop_profit){
+      if (buy_position > 0) {
+      tem_profit <- stop_profit - buyin #最高價大過止盈, 表示止盈在價格區間內
+      }
+    }
+    tem <- buy_profit
+    buy_profit <- buy_profit + tem_loss + tem_profit
+    buy_position <- buy_position - 1
+    buy_trade_count <- buy_trade_count + 1
+    if (tem > buy_profit) {
+      buy_win_trade <- buy_win_trade + 1
+    }
+  }
+  
+
+}
+
+# 做空策略
+sell_profit <- 0
+sell_position <- 0
+tem_loss <- 0
+tem_profit <- 0
+sell_trade_count <- 0
+sell_win_trade <- 0
+data_sell_profit <- NULL
+
+for (i in 1:nrow(BTC_1h_price2)) {
+  
+  cat(i, "/", nrow(BTC_1h_price2), "\n") # 有49460筆資料, 先存檔
+  
+  if(BTC_1h_price2[i,"Divergence"] == -1){
+    sell_position <- sell_position + 1
+    sell <- BTC_1h_price2[i,"Close"] #sell是做空部位
+    stop_loss <- sell + BTC_1h_price2[i,"ATR"]
+    stop_profit <- sell - BTC_1h_price2[i,"ATR"]
+    if(BTC_1h_price2[i,"Low"] < stop_profit){ #最低價小過止損, 表示止損在價格區間內
+      if(sell_position > 0){
+        tem_profit <- sell - stop_profit
+      }
+    }  
+    if(BTC_1h_price2[i,"High"] > stop_loss){
+      if (sell_position > 0) {
+        tem_loss <- stop_profit - sell #最高價大過止盈, 表示止盈在價格區間內
+      }
+    }
+    tem <- sell_profit
+    sell_profit <- sell_profit + tem_loss + tem_profit
+    sell_position <- sell_position - 1
+    sell_trade_count <- sell_trade_count + 1
+    if (tem > sell_profit) {
+      sell_win_trade <- sell_win_trade + 1
+    }
+    tem1 <- cbind(BTC_1h_price2[i,"Date"], sell_profit, sell)
+    data_sell_profit <- rbind(data_sell_profit, tem1)
+  }
+  
+  
+}
+
+buy_win_percent <- buy_win_trade/buy_trade_count
+sell_win_percent <- sell_win_trade/sell_trade_count
+
+buy_win_percent
+sell_win_percent
+buy_profit
+sell_profit
+
+buyin <- as.numeric(BTC_1h_price1$Close)
+stop_loss <- buyin-as.numeric(BTC_1h_price1$ATR)
+stop_profit <- buyin+as.numeric(BTC_1h_price1$ATR)
+
+
+
 
