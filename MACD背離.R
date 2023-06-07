@@ -73,7 +73,7 @@ write.csv(BTC_1h_price, file = "BTC_1h_price.csv")
 #
 #
 #    MACD背離 part 2 start from here
-#
+#    要調整資料的時間都從這邊調整
 #
 #
 ############################################################################
@@ -85,29 +85,7 @@ BTC_1h_price <- BTC_1h_price[c(2:nrow(BTC_1h_price)),c(2:8)]
 
 rm(columns)
 ########################################### 定義背離 #######################################################
-#畫背離線 
-# 定义函数：判断顶部背离
-f_top_fractal <- function(src) {
-  src[5] < src[3] & src[4] < src[3] & src[3] > src[2] & src[3] > src[1]
-}
 
-# 定义函数：判断底部背离
-f_bot_fractal <- function(src) {
-  src[5] > src[3] & src[4] > src[3] & src[3] < src[2] & src[3] < src[1]
-}
-
-# 定义函数：判断背离类型
-f_fractalize <- function(src) {
-  if (f_top_fractal(src)) {
-    return(1)
-  } else if (f_bot_fractal(src)) {
-    return(-1)
-  } else {
-    return(0)
-  }
-}
-
-###################################testing 測試成功!
 #  定义函数检查背离
 check_divergence <- function(prices, macd_histogram) {
   divergences <- character(length(prices))
@@ -115,9 +93,9 @@ check_divergence <- function(prices, macd_histogram) {
   for (i in 3:length(prices)) {
     if (!is.na(macd_histogram[i]) && !is.na(macd_histogram[i-1]) && !is.na(prices[i]) && !is.na(prices[i-1])) {
       if (macd_histogram[i] > 0 && macd_histogram[i-1] > 0 && macd_histogram[i] < macd_histogram[i-1] && prices[i] > prices[i-1]) {
-        divergences[i] <- 1
+        divergences[i] <- 1 ##頂背離
       } else if (macd_histogram[i] < 0 && macd_histogram[i-1] < 0 && macd_histogram[i] > macd_histogram[i-1] && prices[i] < prices[i-1]) {
-        divergences[i] <- -1
+        divergences[i] <- -1  ##底背離
       }
     }
   }
@@ -163,7 +141,7 @@ tem_profit <- 0
 buy_trade_count <- 0
 buy_win_trade <- 0
 
-for (i in 1:nrow(BTC_1h_price2)) {
+for (i in 1:(nrow(BTC_1h_price2))) {
   
   cat(i, "/", nrow(BTC_1h_price2), "\n") 
   
@@ -197,6 +175,25 @@ for (i in 1:nrow(BTC_1h_price2)) {
 }
 data_trading1 <- data_trading[!duplicated(data_trading$buy_profit),]
 
+data2017 <- subset(data_trading1, grepl("2017", data_trading1$Date))
+data2018 <- subset(data_trading1, grepl("2018", data_trading1$Date))
+data2019 <- subset(data_trading1, grepl("2019", data_trading1$Date))
+data2020 <- subset(data_trading1, grepl("2020", data_trading1$Date))
+data2021 <- subset(data_trading1, grepl("2021", data_trading1$Date))
+data2022 <- subset(data_trading1, grepl("2022", data_trading1$Date))
+data2023 <- subset(data_trading1, grepl("2023", data_trading1$Date))
+data_buy <- rbind(data2017[nrow(data2017),], data2018[nrow(data2018),], data2019[nrow(data2019),], data2020[nrow(data2020),], data2021[nrow(data2021),]
+                  ,data2022[nrow(data2022),], data2023[nrow(data2023),])
+
+data_buy <- NULL
+for (i in 1:7) {
+  n <- 2016+i
+  tem <- subset(data_trading1, grepl(n, data_trading1$Date))
+  temprofit <-  tem[nrow(tem),5] - tem[1,5]
+  temdate <- tem[nrow(tem),1]
+  tem1 <- cbind(temdate, temprofit)
+  data_buy <- rbind(data_buy, tem1)
+}
 
 # 做空策略
 sell_profit <- 0
@@ -207,7 +204,7 @@ sell_trade_count <- 0
 sell_win_trade <- 0
 data_sell_profit <- NULL
 
-for (i in 1:nrow(BTC_1h_price2)) {
+for (i in 1:(nrow(BTC_1h_price2)-1)) {
   
   cat(i, "/", nrow(BTC_1h_price2), "\n") # 有49460筆資料, 先存檔
   
@@ -240,6 +237,28 @@ for (i in 1:nrow(BTC_1h_price2)) {
   
 }
 
+data2017 <- subset(data_sell_profit, grepl("2017", data_sell_profit[,1]))
+data2018 <- subset(data_sell_profit, grepl("2018", data_sell_profit[,1]))
+data2019 <- subset(data_sell_profit, grepl("2019", data_sell_profit[,1]))
+data2020 <- subset(data_sell_profit, grepl("2020", data_sell_profit[,1]))
+data2021 <- subset(data_sell_profit, grepl("2021", data_sell_profit[,1]))
+data2022 <- subset(data_sell_profit, grepl("2022", data_sell_profit[,1]))
+data2023 <- subset(data_sell_profit, grepl("2023", data_sell_profit[,1]))
+data_sell <- rbind(data2017[nrow(data2017),], data2018[nrow(data2018),], data2019[nrow(data2019),], data2020[nrow(data2020),], data2021[nrow(data2021),]
+                  ,data2022[nrow(data2022),], data2023[nrow(data2023),])
+
+data_sell <- NULL
+for (i in 1:7) {
+  n <- 2016+i
+  tem <- subset(data_sell_profit, grepl(n, data_sell_profit[,1]))
+  temprofit <-  as.numeric(tem[nrow(tem),2]) - as.numeric(tem[1,2])
+  temdate <- tem[nrow(tem),1]
+  tem1 <- cbind(temdate, temprofit)
+  data_sell <- rbind(data_sell, tem1)
+}
+
+data_traded <- cbind(data_buy, data_sell)
+colnames(data_traded) <- c("DATE", "BUY PROFIT", "DATE", "SELL PROFIT")
 buy_win_percent <- buy_win_trade/buy_trade_count
 sell_win_percent <- sell_win_trade/sell_trade_count
 
@@ -247,6 +266,7 @@ buy_win_percent
 sell_win_percent
 buy_profit
 sell_profit
+data_traded
 
 ######都做完了, 接下來要做表格, 進出場時間點, 包括buy and sell, ATR, profit, loss
 
