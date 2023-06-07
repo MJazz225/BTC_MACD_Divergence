@@ -20,6 +20,7 @@ rawdata <- rawdata[c(nrow(rawdata):3),]
 colnames(rawdata) <- columns
 BTC_1h_price <- rawdata[,c(2,4,5,6,7)]
 rm(rawdata)
+
 ########################################### 技術指標設定 #######################################################
 #MACD parameter
 fast_period = 13
@@ -143,6 +144,8 @@ write.csv(subset2, file = "BTC_1hour_price.csv")
 
 #做多策略
 BTC_1h_price2 <- na.omit(BTC_1h_price1)
+#BTC_2022to2023 <- BTC_1h_price2[38169:nrow(BTC_1h_price2),]
+#BTC_1h_price2 <- BTC_2022to2023
 
 BTC_1h_price2$Open <- as.numeric(BTC_1h_price2$Open)
 BTC_1h_price2$High <- as.numeric(BTC_1h_price2$High)
@@ -150,6 +153,8 @@ BTC_1h_price2$Low <- as.numeric(BTC_1h_price2$Low)
 BTC_1h_price2$Close <- as.numeric(BTC_1h_price2$Close)
 BTC_1h_price2$Histogram <- as.numeric(BTC_1h_price2$Histogram)
 BTC_1h_price2$ATR <- as.numeric(BTC_1h_price2$ATR)
+
+data_trading <-  NULL
 
 buy_profit <- 0
 buy_position <- 0
@@ -160,7 +165,7 @@ buy_win_trade <- 0
 
 for (i in 1:nrow(BTC_1h_price2)) {
   
-  cat(i, "/", nrow(BTC_1h_price2), "\n") # 有49460筆資料, 先存檔
+  cat(i, "/", nrow(BTC_1h_price2), "\n") 
   
   if(BTC_1h_price2[i,"Divergence"] == 1){
     buy_position <- buy_position + 1
@@ -184,10 +189,14 @@ for (i in 1:nrow(BTC_1h_price2)) {
     if (tem > buy_profit) {
       buy_win_trade <- buy_win_trade + 1
     }
+
   }
-  
+  tem1 <- cbind(BTC_1h_price2[i,c("Date", "Close", "ATR", "Divergence")], buy_profit)
+  data_trading <- rbind(data_trading, tem1)
 
 }
+data_trading1 <- data_trading[!duplicated(data_trading$buy_profit),]
+
 
 # 做空策略
 sell_profit <- 0
@@ -239,10 +248,7 @@ sell_win_percent
 buy_profit
 sell_profit
 
-buyin <- as.numeric(BTC_1h_price1$Close)
-stop_loss <- buyin-as.numeric(BTC_1h_price1$ATR)
-stop_profit <- buyin+as.numeric(BTC_1h_price1$ATR)
-
+######都做完了, 接下來要做表格, 進出場時間點, 包括buy and sell, ATR, profit, loss
 
 
 
