@@ -93,9 +93,9 @@ check_divergence <- function(prices, macd_histogram) {
   for (i in 3:length(prices)) {
     if (!is.na(macd_histogram[i]) && !is.na(macd_histogram[i-1]) && !is.na(prices[i]) && !is.na(prices[i-1])) {
       if (macd_histogram[i] > 0 && macd_histogram[i-1] > 0 && macd_histogram[i] < macd_histogram[i-1] && prices[i] > prices[i-1]) {
-        divergences[i] <- 1 ##頂背離
+        divergences[i] <- 1 ##頂背離 做買 結果做順勢交易不是背離交易了
       } else if (macd_histogram[i] < 0 && macd_histogram[i-1] < 0 && macd_histogram[i] > macd_histogram[i-1] && prices[i] < prices[i-1]) {
-        divergences[i] <- -1  ##底背離
+        divergences[i] <- -1  ##底背離 做賣 結果做順勢交易不是背離交易了
       }
     }
   }
@@ -116,7 +116,6 @@ prices <- BTC_1h_price1$Close
 hourly_time <- BTC_1h_price1$Date
 
 subset2 <- BTC_1h_price1[c(1:500),c(1,5,6)]
-write.csv(subset2, file = "BTC_1hour_price.csv")
 
 ########################################### 回測交易 #######################################################
 
@@ -132,8 +131,6 @@ BTC_1h_price2$Close <- as.numeric(BTC_1h_price2$Close)
 BTC_1h_price2$Histogram <- as.numeric(BTC_1h_price2$Histogram)
 BTC_1h_price2$ATR <- as.numeric(BTC_1h_price2$ATR)
 
-data_trading <-  NULL
-
 buy_profit <- 0
 buy_position <- 0
 tem_loss <- 0
@@ -141,6 +138,8 @@ tem_profit <- 0
 buy_trade_count <- 0
 buy_win_trade <- 0
 
+data_trading <-  NULL
+BTC_1h_price2 <- BTC_1h_price2[c(1:500),]　##縮小資料
 for (i in 1:(nrow(BTC_1h_price2))) {
   
   cat(i, "/", nrow(BTC_1h_price2), "\n") 
@@ -153,16 +152,19 @@ for (i in 1:(nrow(BTC_1h_price2))) {
     if(BTC_1h_price2[i,"Low"] < stop_loss){ #最低價小過止損, 表示止損在價格區間內
       if(buy_position > 0){
         tem_loss <- stop_loss - buyin
+        buy_position <- buy_position - 1
+
       }
     }  
     if(BTC_1h_price2[i,"High"] > stop_profit){
       if (buy_position > 0) {
       tem_profit <- stop_profit - buyin #最高價大過止盈, 表示止盈在價格區間內
+      buy_position <- buy_position - 1
+      
       }
     }
     tem <- buy_profit
     buy_profit <- buy_profit + tem_loss + tem_profit
-    buy_position <- buy_position - 1
     buy_trade_count <- buy_trade_count + 1
     if (tem > buy_profit) {
       buy_win_trade <- buy_win_trade + 1
@@ -174,6 +176,11 @@ for (i in 1:(nrow(BTC_1h_price2))) {
 
 }
 data_trading1 <- data_trading[!duplicated(data_trading$buy_profit),]
+
+library(dplyr)
+every_profit <- diff(data_trading1[,5]) %>% as.data.frame()
+every_profit <- rbind(NA,every_profit)
+data_trading1 <- cbind(data_trading1, every_profit)
 
 data2017 <- subset(data_trading1, grepl("2017", data_trading1$Date))
 data2018 <- subset(data_trading1, grepl("2018", data_trading1$Date))
@@ -258,9 +265,13 @@ for (i in 1:7) {
 }
 
 data_traded <- cbind(data_buy, data_sell)
+
 colnames(data_traded) <- c("DATE", "BUY PROFIT", "DATE", "SELL PROFIT")
 buy_win_percent <- buy_win_trade/buy_trade_count
 sell_win_percent <- sell_win_trade/sell_trade_count
+
+data_traded <- cbind(data_buy, buy_win_percent, sell_win_percent, buy_profit, sell_profit)
+write.csv(data_traded, file = "1hour_BTC_profit.csv")
 
 buy_win_percent
 sell_win_percent
