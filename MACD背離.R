@@ -140,6 +140,7 @@ buy_win_trade <- 0
 
 data_trading <-  NULL
 BTC_1h_price2 <- BTC_1h_price2[c(1:500),]　##縮小資料
+"ATR 有BUG 出了問題, 沒有準確出現每一次的ATR"
 for (i in 1:(nrow(BTC_1h_price2))) {
   
   cat(i, "/", nrow(BTC_1h_price2), "\n") 
